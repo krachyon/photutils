@@ -529,8 +529,14 @@ class BasicPSFPhotometry:
             for i in range(star_group_size):
                 for param_tab_name, param_name in self._pars_to_output.items():
                     param_prefix, param_postfix = _split(param_name)
-                    model_name_candidates = [name for name in fit_model.param_names if name.startswith(param_prefix)]
-                    model_name_candidates = [name for name in model_name_candidates if int(_split(name)[1]) > int(param_postfix)]
+                    # TODO sometimes we need to match prefixes (if its param_i+j) and sometimes the whole name
+                    #  if its param_i_j
+                    #  Find out why why combining e.g. IntegratedGaussianPRF works differently than Gaussian2D
+                    #  Maybe it would be better to unify names already at the point where the models are combined?
+                    model_name_candidates = [name for name in fit_model.param_names if name.startswith(param_name)]
+                    if len(model_name_candidates) < 2:
+                        model_name_candidates = [name for name in fit_model.param_names if name.startswith(param_prefix)]
+                    # model_name_candidates = [name for name in model_name_candidates if int(_split(name)[1]) > int(param_postfix)]
 
                     param_tab[param_tab_name][i] = getattr(fit_model,
                                                            model_name_candidates[i]
