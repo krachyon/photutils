@@ -655,6 +655,43 @@ def test_psf_extra_output_cols(sigma_psf, sources):
 
 
 @pytest.mark.skipif('not HAS_SCIPY')
+def test_psf_fitting_group():
+    """ Test psf_photometry when two input stars are close and need to be fit together """
+    from photutils.background import MADStdBackgroundRMS
+
+    close_tab = INTAB.copy()
+    # add two stars that are closer to each other than separation_crit
+    separation_crit = 5
+
+    close_tab.add_row((8., 8., 50.))
+    close_tab.add_row((9., 11., 50.))
+    close_image = np.zeros((IMAGE_SIZE, IMAGE_SIZE))
+    # Add sources to test image
+    for x, y, flux in close_tab:
+        close_model = Gaussian2D(flux / (2 * np.pi * GAUSSIAN_WIDTH ** 2),
+                                 x, y, GAUSSIAN_WIDTH, GAUSSIAN_WIDTH)
+        close_image += discretize_model(close_model, (0, IMAGE_SIZE), (0, IMAGE_SIZE),
+                                        mode='oversample')
+
+    psf = prepare_psf_model(Moffat2D(), renormalize_psf=False)
+    psf.fwhm = Parameter('fwhm', 'this is not the way to add this I think')
+    psf.fwhm.value = 10
+
+    basic_phot = IterativelySubtractedPSFPhotometry(
+                                    finder=DAOStarFinder(0.1, 2),
+                                    group_maker=DAOGroup(separation_crit),
+                                    bkg_estimator=MADStdBackgroundRMS(),
+                                    fitter=LevMarLSQFitter(),
+                                    psf_model=psf,
+                                    fitshape=31,
+                                    niters=1)
+    f = basic_phot(image=close_image)
+
+    for n in ['x', 'y', 'flux']:
+        assert_allclose(f[n + '_0'], f[n + '_fit'], rtol=1e-6)
+
+
+@pytest.mark.skipif('not HAS_SCIPY')
 def test_finder_return_none():
     """
     Test psf_photometry with finder that does not return None if no
