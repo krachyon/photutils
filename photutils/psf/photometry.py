@@ -536,7 +536,10 @@ class BasicPSFPhotometry:
                     model_name_candidates = [name for name in fit_model.param_names if name.startswith(param_name)]
                     if len(model_name_candidates) < 2:
                         model_name_candidates = [name for name in fit_model.param_names if name.startswith(param_prefix)]
-                    # model_name_candidates = [name for name in model_name_candidates if int(_split(name)[1]) > int(param_postfix)]
+                        # this is needed for the case that we have param_0 param_1 ->
+                        #  param_0 param_1 [...] param_N param_N+1
+                        model_name_candidates = [name for name in model_name_candidates if
+                                                 int(_split(name)[1]) >= int(param_postfix)]
 
                     param_tab[param_tab_name][i] = getattr(fit_model,
                                                            model_name_candidates[i]
