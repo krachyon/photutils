@@ -362,10 +362,16 @@ apertures (red) on the image:
 
    norm = simple_norm(data, 'sqrt', percent=99)
    plt.imshow(data, norm=norm, interpolation='nearest')
-   aperture.plot(color='white', lw=2)
-   annulus_aperture.plot(color='red', lw=2)
    plt.xlim(0, 170)
    plt.ylim(130, 250)
+
+   ap_patches = aperture.plot(color='white', lw=2,
+                              label='Photometry aperture')
+   ann_patches = annulus_aperture.plot(color='red', lw=2,
+                                       label='Background annulus')
+   handles = (ap_patches[0], ann_patches[0])
+   plt.legend(loc=(0.17, 0.05), facecolor='#458989', labelcolor='white',
+              handles=handles, prop={'weight': 'bold', 'size': 11})
 
 We can use aperture masks to directly access the pixel values in any
 aperture.  Let's do that for the annulus aperture::
@@ -524,9 +530,7 @@ pixel's value and saved it in the array ``error``::
     .. math:: \Delta F = \sqrt{\sum_{i \in A}
               \sigma_{\mathrm{tot}, i}^2}
 
-where :math:`\Delta F` is
-`~photutils.segmentation.SourceProperties.source_sum_err`, :math:`A`
-are the non-masked pixels in the aperture, and
+where :math:`A` are the non-masked pixels in the aperture, and
 :math:`\sigma_{\mathrm{tot}, i}` is the input ``error`` array.
 
 In the example above, it is assumed that the ``error`` keyword
@@ -760,10 +764,9 @@ See Also
 
 1. `IRAF's APPHOT package`_
 
-2. `SourceExtractor Manual [PDF]`_ (Sec. 9.4 p. 36)
+2. `SourceExtractor`_
 
-.. _SourceExtractor: https://www.astromatic.net/software/sextractor
-.. _SourceExtractor Manual [PDF]: https://www.astromatic.net/pubsvn/software/sextractor/trunk/doc/sextractor.pdf
+.. _SourceExtractor: https://sextractor.readthedocs.io/en/latest/
 .. _IRAF's APPHOT package: http://iraf.noao.edu/scripts/irafhelp?apphot
 
 

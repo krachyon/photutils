@@ -6,7 +6,9 @@ RMS in an image.
 
 from itertools import product
 
+from astropy.nddata import NDData
 from astropy.stats import SigmaClip
+import astropy.units as u
 from astropy.utils import lazyproperty
 import numpy as np
 from numpy.lib.index_tricks import index_exp
@@ -183,7 +185,7 @@ class Background2D:
 
     Parameters
     ----------
-    data : array_like
+    data : array_like or `~astropy.nddata.NDData`
         The 2D array from which to estimate the background and/or
         background RMS map.
 
@@ -313,7 +315,12 @@ class Background2D:
                  bkgrms_estimator=StdBackgroundRMS(sigma_clip=None),
                  interpolator=BkgZoomInterpolator()):
 
-        data = np.asanyarray(data)
+        if isinstance(data, (u.Quantity, NDData)):  # includes CCDData
+            self.unit = data.unit
+            data = data.data
+        else:
+            self.unit = None
+            data = np.asanyarray(data)
 
         box_size = np.atleast_1d(box_size)
         if len(box_size) == 1:
@@ -526,12 +533,11 @@ class Background2D:
         self.nboxes = self.nxboxes * self.nyboxes
 
         # a reshaped 2D masked array with mesh data along the x axis
-        mesh_data = np.ma.swapaxes(
-                        data_ma.reshape(
-                            self.nyboxes, self.box_size[0],
-                            self.nxboxes, self.box_size[1]),
-                        1, 2).reshape(self.nyboxes * self.nxboxes,
-                                      self.box_npixels)
+        mesh_data = np.ma.swapaxes(data_ma.reshape(
+            self.nyboxes, self.box_size[0],
+            self.nxboxes, self.box_size[1]),
+            1, 2).reshape(self.nyboxes * self.nxboxes,
+                          self.box_npixels)
 
         # first cut on rejecting meshes
         self.mesh_idx = self._select_meshes(mesh_data)
@@ -689,9 +695,9 @@ class Background2D:
         Both meshes are computed at the same time here method because
         the filtering of both depends on the background mesh.
 
-        The ``background_mesh`` and ``background_rms_mesh`` images are
-        equivalent to the low-resolution "MINIBACKGROUND" and
-        "MINIBACK_RMS" background maps in SExtractor, respectively.
+        The ``background_mesh`` and ``background_rms_mesh`` images
+        are equivalent to the low-resolution "MINIBACKGROUND" and
+        "MINIBACK_RMS" background maps in SourceExtractor, respectively.
         """
 
         if self.sigma_clip is not None:
@@ -786,22 +792,26 @@ class Background2D:
         """
         The median value of the 2D low-resolution background map.
 
-        This is equivalent to the value SExtractor prints to stdout
+        This is equivalent to the value SourceExtractor prints to stdout
         (i.e., "(M+D) Background: <value>").
         """
-
-        return np.median(self.background_mesh)
+        _median = np.median(self.background_mesh)
+        if self.unit is not None:
+            _median <<= self.unit
+        return _median
 
     @lazyproperty
     def background_rms_median(self):
         """
         The median value of the low-resolution background RMS map.
 
-        This is equivalent to the value SExtractor prints to stdout
+        This is equivalent to the value SourceExtractor prints to stdout
         (i.e., "(M+D) RMS: <value>").
         """
-
-        return np.median(self.background_rms_mesh)
+        _rms_median = np.median(self.background_rms_mesh)
+        if self.unit is not None:
+            _rms_median <<= self.unit
+        return _rms_median
 
     @lazyproperty
     def background(self):
@@ -809,6 +819,8 @@ class Background2D:
         bkg = self.interpolator(self.background_mesh, self)
         if self.coverage_mask is not None:
             bkg[self.coverage_mask] = self.fill_value
+        if self.unit is not None:
+            bkg <<= self.unit
         return bkg
 
     @lazyproperty
@@ -817,6 +829,8 @@ class Background2D:
         bkg_rms = self.interpolator(self.background_rms_mesh, self)
         if self.coverage_mask is not None:
             bkg_rms[self.coverage_mask] = self.fill_value
+        if self.unit is not None:
+            bkg_rms <<= self.unit
         return bkg_rms
 
     def plot_meshes(self, axes=None, marker='+', color='blue', outlines=False,

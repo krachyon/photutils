@@ -77,7 +77,7 @@ in :func:`~photutils.segmentation.detect_sources`.
 We will also input a 2D circular Gaussian kernel with a FWHM of 3
 pixels to smooth the image some prior to thresholding:
 
-.. doctest-requires:: scipy
+.. doctest-requires:: scipy>=1.6.0
 
     >>> from astropy.convolution import Gaussian2DKernel
     >>> from astropy.stats import gaussian_fwhm_to_sigma
@@ -141,13 +141,12 @@ Source Deblending
 -----------------
 
 In the example above, overlapping sources are detected as single
-sources.  Separating those sources requires a deblending procedure,
-such as a multi-thresholding technique used by `SExtractor
-<https://www.astromatic.net/software/sextractor>`_.  Photutils provides
-a :func:`~photutils.segmentation.deblend_sources` function that
-deblends sources uses a combination of multi-thresholding and
-`watershed segmentation
-<https://en.wikipedia.org/wiki/Watershed_(image_processing)>`_.  Note
+sources. Separating those sources requires a deblending procedure,
+such as a multi-thresholding technique used by `SourceExtractor`_.
+Photutils provides a :func:`~photutils.segmentation.deblend_sources`
+function that deblends sources uses a combination
+of multi-thresholding and `watershed segmentation
+<https://en.wikipedia.org/wiki/Watershed_(image_processing)>`_. Note
 that in order to deblend sources, they must be separated enough such
 that there is a saddle between them.
 
@@ -159,7 +158,7 @@ that a local peak must have to be considered as a separate object.
 
 Here's a simple example of source deblending:
 
-.. doctest-requires:: scipy, skimage
+.. doctest-requires:: scipy>=1.6.0, skimage
 
     >>> from photutils import deblend_sources
     >>> segm_deblend = deblend_sources(data, segm, npixels=5,
@@ -297,7 +296,7 @@ background and background noise image.  We define a 2D detection
 threshold image using the background and background RMS images.  We
 set the threshold at 2 sigma (per pixel) above the background:
 
-.. doctest-requires:: scipy
+.. doctest-requires:: scipy>=1.6.0
 
     >>> from astropy.convolution import Gaussian2DKernel
     >>> from photutils.datasets import make_100gaussians_image
@@ -315,7 +314,7 @@ threshold includes the background, we do not subtract the background
 from the data here.  We also input a 2D circular Gaussian kernel with
 a FWHM of 3 pixels to filter the image prior to thresholding:
 
-.. doctest-requires:: scipy, skimage
+.. doctest-requires:: scipy>=1.6.0, skimage
 
     >>> from astropy.stats import gaussian_fwhm_to_sigma
     >>> sigma = 3.0 * gaussian_fwhm_to_sigma  # FWHM = 3.
@@ -344,7 +343,7 @@ source properties are shown below.  Please see
 `~photutils.segmentation.SourceProperties` for the list of the many
 properties that are calculated for each source:
 
-.. doctest-requires:: scipy, skimage
+.. doctest-requires:: scipy>=1.6.0, skimage
 
     >>> from photutils import source_properties
     >>> cat = source_properties(data, segm_deblend)
@@ -362,13 +361,13 @@ properties that are calculated for each source:
       1    235.22      1.25         None ...     0.17    -0.20     0.99 0.18
       2    493.82      5.77         None ...     0.16    -0.32     0.61 0.13
       3    207.30     10.02         None ...     0.37     0.49     0.30 0.16
-      4    364.75     11.13         None ...     0.39    -0.33     0.18 0.13
-      5    258.37     11.77         None ...     0.37     0.15     0.16 0.13
+      4    364.73     11.14         None ...     0.41    -0.32     0.18 0.12
+      5    258.39     11.80         None ...     0.37     0.14     0.15 0.14
     ...       ...       ...          ... ...      ...      ...      ...  ...
      92    427.01    147.45         None ...     0.26    -0.07     0.12 0.12
      93    426.60    211.14         None ...     0.67     0.24     0.35 0.41
      94    419.79    216.68         None ...     0.17    -0.19     0.27 0.14
-     95    433.91    280.73         None ...     0.52    -0.83     0.49 0.23
+     95    433.91    280.70         None ...     0.54    -0.86     0.51 0.22
      96    434.11    288.90         None ...     0.18    -0.19     0.30 0.24
     Length = 96 rows
 
@@ -383,7 +382,7 @@ semiminor axes lengths
 `~photutils.segmentation.SourceProperties.semiminor_axis_sigma`) , and
 orientation (`~photutils.segmentation.SourceProperties.orientation`):
 
-.. doctest-requires:: scipy, skimage
+.. doctest-requires:: scipy>=1.6.0, skimage
 
     >>> import numpy as np
     >>> import astropy.units as u
@@ -471,7 +470,7 @@ Now let's plot the derived elliptical apertures on the data:
 We can also specify a specific subset of sources, defined by their
 label numbers in the segmentation image:
 
-.. doctest-requires:: scipy, skimage
+.. doctest-requires:: scipy>=1.6.0, skimage
 
     >>> labels = [1, 5, 20, 50, 75, 80]
     >>> cat = source_properties(data, segm_deblend, labels=labels)
@@ -487,11 +486,11 @@ label numbers in the segmentation image:
            pix       pix                 ... 1 / pix2 1 / pix2 1 / pix2
     --- --------- --------- ------------ ... -------- -------- -------- ----
       1    235.22      1.25         None ...     0.17    -0.20     0.99 0.18
-      5    258.37     11.77         None ...     0.37     0.15     0.16 0.13
+      5    258.39     11.80         None ...     0.37     0.14     0.15 0.14
      20    347.00     66.94         None ...     0.15    -0.01     0.21 0.11
      50    145.06    168.55         None ...     0.66     0.05     0.71 0.45
      75    301.86    239.25         None ...     0.47    -0.05     0.28 0.08
-     80     43.20    250.01         None ...     0.18    -0.08     0.34 0.11
+     80     43.26    250.01         None ...     0.17    -0.08     0.35 0.11
 
 By default, the :meth:`~photutils.segmentation.SourceCatalog.to_table`
 method will include most scalar-valued properties from
@@ -500,7 +499,7 @@ properties can also be specified (or excluded) in the
 `~astropy.table.QTable` via the ``columns`` or ``exclude_columns``
 keywords:
 
-.. doctest-requires:: scipy, skimage
+.. doctest-requires:: scipy>=1.6.0, skimage
 
     >>> labels = [1, 5, 20, 50, 75, 80]
     >>> cat = source_properties(data, segm_deblend, labels=labels)
@@ -514,11 +513,11 @@ keywords:
            pix       pix               pix2
     --- --------- --------- ---------- ----
       1  235.2160    1.2457   594.2193 36.0
-      5  258.3710   11.7694   684.7155 58.0
+      5  258.3876   11.8024   691.7895 59.0
      20  346.9998   66.9428   864.9778 73.0
      50  145.0591  168.5496   885.9582 33.0
      75  301.8641  239.2534   391.1656 36.0
-     80   43.2023  250.0100   627.6727 55.0
+     80   43.2554  250.0099   634.7050 56.0
 
 A `~astropy.wcs.WCS` transformation can also be input to
 :func:`~photutils.segmentation.source_properties` via the ``wcs``
@@ -537,7 +536,7 @@ from the data into the ``background`` keyword of
 :func:`~photutils.segmentation.source_properties`, the background
 properties for each source will also be calculated:
 
-.. doctest-requires:: scipy, skimage
+.. doctest-requires:: scipy>=1.6.0, skimage
 
     >>> labels = [1, 5, 20, 50, 75, 80]
     >>> cat = source_properties(data, segm_deblend, labels=labels,
@@ -551,12 +550,12 @@ properties for each source will also be calculated:
     >>> print(tbl4)
      id background_at_centroid background_mean background_sum
     --- ---------------------- --------------- --------------
-      1           5.2020428266    5.2021662094 187.2779835383
-      5           5.2140031370    5.2139893924 302.4113847608
-     20           5.2787968578    5.2785772173 385.3361368595
-     50           5.1896511123    5.1895516008 171.2552028270
-     75           5.1409531509    5.1408425626 185.0703322539
-     80           5.2109780136    5.2108402505 286.5962137759
+      1           5.2020444471    5.2021410884 187.2770791841
+      5           5.2102123200    5.2102818673 307.4066301727
+     20           5.2782087823    5.2780021156 385.2941544392
+     50           5.1885739254    5.1884834993 171.2199554780
+     75           5.1410822081    5.1409912451 185.0756848238
+     80           5.2108451834    5.2106591322 291.7969114012
 
 Photometric Errors
 ^^^^^^^^^^^^^^^^^^
@@ -589,7 +588,7 @@ calculated.  `~photutils.segmentation.SourceProperties.source_sum` and
 instrumental flux and propagated flux error within the source
 segments:
 
-.. doctest-requires:: scipy, skimage
+.. doctest-requires:: scipy>=1.6.0, skimage
 
     >>> from photutils.utils import calc_total_error
     >>> labels = [1, 5, 20, 50, 75, 80]
@@ -607,12 +606,12 @@ segments:
      id xcentroid ycentroid source_sum source_sum_err
            pix       pix
     --- --------- --------- ---------- --------------
-      1 235.21604 1.2457344  594.21933      12.787658
-      5 258.37099 11.769376  684.71547      16.326605
-     20 346.99975 66.942777  864.97776      18.677809
-     50 145.05911 168.54961   885.9582      11.908449
-     75 301.86414 239.25337  391.16559      12.080326
-     80 43.202278 250.00997  627.67268      15.812197
+      1 235.21604 1.2457344  594.21933      12.784238
+      5 258.38765 11.802411  691.78952      16.457525
+     20 346.99975 66.942777  864.97776      18.667065
+     50 145.05911 168.54961   885.9582      11.904315
+     75 301.86414 239.25337  391.16559      12.080546
+     80 43.255435 250.00986  634.70498      15.926507
 
 
 Pixel Masking
@@ -628,19 +627,19 @@ the ``mask`` keyword (`True` pixel values are masked) to the
 Filtering
 ^^^^^^^^^
 
-`SExtractor`_'s centroid and morphological parameters are always
-calculated from a filtered "detection" image.  The usual downside of
-the filtering is the sources will be made more circular than they
-actually are (assuming a circular kernel is used, which is common).
-If you wish to reproduce `SExtractor`_ results, then use the
-:func:`~photutils.segmentation.source_properties` ``filter_kernel``
-keyword to filter the ``data`` prior to centroid and morphological
-measurements.   The kernel should be the same one used with
-:func:`~photutils.segmentation.detect_sources` to define the
-segmentation image.  If ``filter_kernel`` is `None`, then the centroid
+`SourceExtractor`_'s centroid and morphological parameters are
+always calculated from a filtered "detection" image. The usual
+downside of the filtering is the sources will be made more circular
+than they actually are (assuming a circular kernel is used, which
+is common). If you wish to reproduce `SourceExtractor`_ results,
+then use the :func:`~photutils.segmentation.source_properties`
+``filter_kernel`` keyword to filter the ``data`` prior to centroid and
+morphological measurements. The kernel should be the same one used
+with :func:`~photutils.segmentation.detect_sources` to define the
+segmentation image. If ``filter_kernel`` is `None`, then the centroid
 and morphological measurements will be performed on the unfiltered
-``data``.  Note that photometry is *always* performed on the
-unfiltered ``data``.
+``data``. Note that photometry is *always* performed on the unfiltered
+``data``.
 
 
 Reference/API
@@ -650,4 +649,4 @@ Reference/API
     :no-heading:
 
 
-.. _SExtractor:  https://www.astromatic.net/software/sextractor
+.. _SourceExtractor:  https://sextractor.readthedocs.io/en/latest/

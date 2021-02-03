@@ -5,6 +5,8 @@ Tests for the background_2d module.
 
 import itertools
 
+from astropy.nddata import NDData, CCDData
+import astropy.units as u
 import numpy as np
 from numpy.testing import assert_allclose, assert_equal
 import pytest
@@ -35,6 +37,11 @@ PADBKG_RMS_MESH = np.zeros((5, 5))
 FILTER_SIZES = [(1, 1), (3, 3)]
 INTERPOLATORS = [BkgZoomInterpolator(), BkgIDWInterpolator()]
 
+DATA1 = DATA << u.ct
+DATA2 = NDData(DATA, unit=None)
+DATA3 = NDData(DATA, unit=u.ct)
+DATA4 = CCDData(DATA, unit=u.ct)
+
 
 @pytest.mark.skipif('not HAS_SCIPY')
 class TestBackground2D:
@@ -51,6 +58,23 @@ class TestBackground2D:
         assert b.background_median == 1.0
         assert b.background_rms_median == 0.0
 
+    @pytest.mark.parametrize('data', [DATA1, DATA3, DATA4])
+    def test_background_nddata(self, data):
+        """ Test with NDData and CCDData, and also test units. """
+        b = Background2D(data, (25, 25), filter_size=3)
+        assert isinstance(b.background, u.Quantity)
+        assert isinstance(b.background_rms, u.Quantity)
+        assert isinstance(b.background_median, u.Quantity)
+        assert isinstance(b.background_rms_median, u.Quantity)
+
+        b = Background2D(DATA2, (25, 25), filter_size=3)
+        assert_allclose(b.background, DATA)
+        assert_allclose(b.background_rms, BKG_RMS)
+        assert_allclose(b.background_mesh, BKG_MESH)
+        assert_allclose(b.background_rms_mesh, BKG_RMS_MESH)
+        assert b.background_median == 1.0
+        assert b.background_rms_median == 0.0
+
     @pytest.mark.parametrize('interpolator', INTERPOLATORS)
     def test_background_rect(self, interpolator):
         """
@@ -60,7 +84,7 @@ class TestBackground2D:
         rms = np.zeros((3, 4))
         b = Background2D(data, (1, 1), filter_size=1,
                          interpolator=interpolator)
-        assert_allclose(b.background, data, atol=1.e-7)
+        assert_allclose(b.background, data, atol=0.005)
         assert_allclose(b.background_rms, rms)
         assert_allclose(b.background_mesh, data)
         assert_allclose(b.background_rms_mesh, rms)
@@ -98,7 +122,7 @@ class TestBackground2D:
                           bkg_estimator=MeanBackground(), edge_method='crop')
         b2 = Background2D(DATA, (23, 22), filter_size=filter_size,
                           bkg_estimator=MeanBackground(), edge_method='pad')
-        assert_allclose(b1.background, b2.background)
+        assert_allclose(b1.background, b2.background, rtol=2e-6)
         assert_allclose(b1.background_rms, b2.background_rms)
 
     @pytest.mark.parametrize('box_size', ([(25, 25), (23, 22)]))
@@ -114,13 +138,13 @@ class TestBackground2D:
         mask[25:50, 25:50] = True
         b = Background2D(data, box_size, filter_size=(1, 1), mask=mask,
                          bkg_estimator=MeanBackground())
-        assert_allclose(b.background, DATA)
+        assert_allclose(b.background, DATA, rtol=2.e-5)
         assert_allclose(b.background_rms, BKG_RMS)
 
         # test edge crop with
         b2 = Background2D(data, box_size, filter_size=(1, 1), mask=mask,
                           bkg_estimator=MeanBackground(), edge_method='crop')
-        assert_allclose(b2.background, DATA)
+        assert_allclose(b2.background, DATA, rtol=2.e-5)
 
     def test_mask(self):
         data = np.copy(DATA)
@@ -172,7 +196,7 @@ class TestBackground2D:
         """Test case where padding is added only on one axis."""
 
         b = Background2D(DATA, (25, 22), filter_size=(1, 1))
-        assert_allclose(b.background, DATA)
+        assert_allclose(b.background, DATA, rtol=1e-5)
         assert_allclose(b.background_rms, BKG_RMS)
         assert b.background_median == 1.0
         assert b.background_rms_median == 0.0

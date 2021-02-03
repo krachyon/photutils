@@ -14,15 +14,46 @@ New Features
   - The ``PixelAperture.plot()`` method now returns a list of
     ``matplotlib.patches.Patch`` objects. [#923]
 
+  - Added an ``area_overlap`` method for ``PixelAperture`` objects that
+    gives the overlapping area of the aperture on the data. [#874]
+
+- ``photutils.background``
+
+  - The ``Background2D`` class now accepts astropy ``NDData``,
+    ``CCDData``, and ``Quantity`` objects as data inputs. [#1140]
+
+- ``photutils.isophote``
+
+  - Added the ability to specify the output columns in the
+    ``IsophoteList`` ``to_table`` method. [#1117]
+
 Bug Fixes
 ^^^^^^^^^
 
+- ``photutils.aperture``
 
-1.0.2 (unreleased)
+  - Slicing a scalar ``Aperture`` object now raises an informative error
+    message. [#1154]
+
+- ``photutils.psf``
+
+  - Fixed a bug in ``EPSFBuild`` where a warning was raised if the input
+    ``smoothing_kernel`` was an ``numpy.ndarray``. [#1146]
+
+API changes
+^^^^^^^^^^^
+
+- ``photutils.centroid``
+
+  - Removed the deprecated ``fit_2dgaussian`` function and
+    ``GaussianConst2D`` class. [#1147]
+
+
+1.0.2 (2021-01-20)
 ------------------
 
-New Features
-^^^^^^^^^^^^
+General
+^^^^^^^
 
 - ``photutils.background``
 
@@ -40,13 +71,31 @@ Bug Fixes
 
 - ``photutils.isophote``
 
+  - Corrected calculations of upper harmonics and their errors [#1089]
+
   - Fixed bug that caused an infinite loop when the sample extracted
     from an image has zero length. [#1129]
+
+  - Fixed a bug where the default ``fixed_parameters`` in
+    ``EllipseSample.update()`` were not defined. [#1139]
+
+- ``photutils.psf``
+
+  - Fixed a bug where very incorrect PSF-fitting uncertainties could
+    be returned when the astropy fitter did not return fit
+    uncertainties. [#1143]
+
+  - Changed the default ``recentering_func`` in ``EPSFBuilder``, to
+    avoid convergence issues. [#1144]
 
 - ``photutils.segmentation``
 
   - Fixed an issue where negative Kron radius values could be returned,
     which would cause an error when calculating Kron fluxes. [#1132]
+
+  - Fixed an issue where an error was raised with
+    ``SegmentationImage.remove_border_labels()`` with ``relabel=True``
+    when no segments remain. [#1133]
 
 
 1.0.1 (2020-09-24)

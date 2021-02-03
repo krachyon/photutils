@@ -198,7 +198,7 @@ class Isophote:
         jmax = min(ysize, int(y0 + sma + 0.5) + 1)
 
         # Integrate
-        if (jmax-jmin > 1) and (imax-imin) > 1:
+        if (jmax - jmin > 1) and (imax - imin) > 1:
             y, x = np.mgrid[jmin:jmax, imin:imax]
             radius, angle = self.sample.geometry.to_polar(x, y)
             radius_e = self.sample.geometry.radius(angle)
@@ -226,30 +226,33 @@ class Isophote:
         amplitudes and errors for harmonic "n". Note that we first
         subtract the first and second harmonics from the raw data.
         """
-
         try:
-            coeffs = fit_first_and_second_harmonics(self.sample.values[0],
-                                                    self.sample.values[2])
-            coeffs = coeffs[0]
-            model = first_and_second_harmonic_function(self.sample.values[0],
-                                                       coeffs)
-            residual = self.sample.values[2] - model
+            # upper (third and fourth) harmonics
+            up_coeffs, up_inv_hessian = fit_upper_harmonic(sample.values[0],
+                                                           sample.values[2],
+                                                           n)
 
-            c = fit_upper_harmonic(sample.values[0], residual, n)
-            covariance = c[1]
-            ce = np.diagonal(covariance)
-            c = c[0]
+            a = up_coeffs[1] / self.sma / sample.gradient
+            b = up_coeffs[2] / self.sma / sample.gradient
 
-            a = c[1] / self.sma / sample.gradient
-            b = c[2] / self.sma / sample.gradient
+            def errfunc(x, phi, order, intensities):
+                return (x[0] + x[1] * np.sin(order * phi) +
+                        x[2] * np.cos(order * phi) - intensities)
+
+            up_var_residual = np.std(errfunc(up_coeffs, self.sample.values[0],
+                                             n, self.sample.values[2]),
+                                     ddof=len(up_coeffs))**2
+            up_covariance = up_inv_hessian * up_var_residual
+
+            ce = np.sqrt(np.diag(up_covariance))
 
             # this comes from the old code. Likely it was based on
             # empirical experience with the STSDAS task, so we leave
             # it here without too much thought.
             gre = self.grad_r_error if self.grad_r_error is not None else 0.64
 
-            a_err = abs(a) * np.sqrt((ce[1] / c[1])**2 + gre**2)
-            b_err = abs(b) * np.sqrt((ce[2] / c[2])**2 + gre**2)
+            a_err = abs(a) * np.sqrt((ce[1] / up_coeffs[1])**2 + gre**2)
+            b_err = abs(b) * np.sqrt((ce[2] / up_coeffs[2])**2 + gre**2)
 
         except Exception:  # we want to catch everything
             a = b = a_err = b_err = None
@@ -264,14 +267,13 @@ class Isophote:
         """
 
         try:
-            coeffs = fit_first_and_second_harmonics(self.sample.values[0],
-                                                    self.sample.values[2])
-            covariance = coeffs[1]
-            coeffs = coeffs[0]
+            coeffs, covariance = fit_first_and_second_harmonics(
+                self.sample.values[0], self.sample.values[2])
             model = first_and_second_harmonic_function(self.sample.values[0],
                                                        coeffs)
-            residual_rms = np.std(self.sample.values[2] - model)
-            errors = np.diagonal(covariance) * residual_rms
+            var_residual = np.std(self.sample.values[2] - model,
+                                  ddof=len(coeffs)) ** 2
+            errors = np.sqrt(np.diagonal(covariance * var_residual))
 
             eps = self.sample.geometry.eps
             pa = self.sample.geometry.pa
@@ -714,7 +716,7 @@ class IsophoteList:
         """
         return self._collect_as_array('b4_err')
 
-    def to_table(self):
+    def to_table(self, columns='main'):
         """
         Convert an `~photutils.isophote.IsophoteList` instance to a
         `~astropy.table.QTable` with the main isophote parameters.
@@ -724,10 +726,41 @@ class IsophoteList:
         result : `~astropy.table.QTable`
             An astropy QTable with the main isophote parameters.
         """
-        return _isophote_list_to_table(self)
+        return _isophote_list_to_table(self, columns)
+
+    def get_names(self):
+        '''Print the names of the properties of an \
+                `~photutils.isophote.IsophoteList` instance.
+        '''
+        list_names = list(_get_properties(self).keys())
+        return list_names
 
 
-def _isophote_list_to_table(isophote_list):
+def _get_properties(isophote_list):
+    """
+    Return the properties of an \
+            `~photutils.isophote.IsophoteList` instance.
+
+    Parameters
+    ----------
+    isophote_list : `~photutils.isophote.IsophoteList` instance
+        A list of isophotes.
+
+    Returns
+    -------
+    result : `OrderedDict`
+        An OrderedDict with the list of the isophote_list properties
+    """
+    properties = dict()
+    for an_item in isophote_list.__class__.__dict__:
+        p_type = isophote_list.__class__.__dict__[an_item]
+        '''Exclude the sample property'''
+        if type(p_type) == property and 'sample' not in an_item:
+            properties[str(an_item)] = str(an_item)
+    return properties
+
+
+def _isophote_list_to_table(isophote_list, columns='main'):
     """
     Convert an `~photutils.isophote.IsophoteList` instance to
     a `~astropy.table.QTable`.
@@ -738,33 +771,69 @@ def _isophote_list_to_table(isophote_list):
             `~photutils.isophote.IsophoteList` instance
         A list of isophotes.
 
+    key_properties : A list of properties to export from the isophote_list
+        If ``columns`` is 'all' or 'main', it will pick all or few
+        of the main properties.
+
     Returns
     -------
     result : `~astropy.table.QTable`
-        An astropy QTable with the main isophote parameters.
+        An astropy QTable with the selected or all isophote parameters.
     """
 
-    properties = {}
-    properties['sma'] = 'sma'
-    properties['intens'] = 'intens'
-    properties['int_err'] = 'intens_err'
-    properties['eps'] = 'ellipticity'
-    properties['ellip_err'] = 'ellipticity_err'
-    properties['pa'] = 'pa'
-    properties['pa_err'] = 'pa_err'
-    properties['grad'] = 'grad'
-    properties['grad_error'] = 'grad_err'
-    properties['grad_r_error'] = 'grad_rerr'
-    properties['x0'] = 'x0'
-    properties['x0_err'] = 'x0_err'
-    properties['y0'] = 'y0'
-    properties['y0_err'] = 'y0_err'
-    properties['ndata'] = 'ndata'
-    properties['nflag'] = 'flag'
-    properties['niter'] = 'niter'
-    properties['stop_code'] = 'stop_code'
-
+    properties = dict()
     isotable = QTable()
+
+    # main_properties: `List`
+    # A list of main parameters matching the original names of
+    # the isophote_list parameters
+
+    def __rename_properties(properties,
+                            orig_names=['int_err', 'eps', 'ellip_err',
+                                        'grad_r_error', 'nflag'],
+                            new_names=['intens_err', 'ellipticity',
+                                       'ellipticity_err', 'grad_rerror',
+                                       'nflag']):
+        '''
+        Simple renaming for some of the isophote_list parameters.
+
+        Parameters
+        ----------
+        properties: `dict`
+            A dictionary with the list of the isophote_list parameters
+        orig_names: list
+            A list of original names in the isophote_list parameters
+            to be renamed
+        new_names: list
+            A list of new names matching in length of the orig_names
+
+        Returns
+        -------
+        properties: `dict`
+            A dictionary with the list of the renamed isophote_list
+            parameters
+        '''
+        main_properties = ['sma', 'intens', 'int_err', 'eps', 'ellip_err',
+                           'pa', 'pa_err', 'grad', 'grad_error',
+                           'grad_r_error', 'x0', 'x0_err', 'y0', 'y0_err',
+                           'ndata', 'nflag', 'niter', 'stop_code']
+
+        for an_item in main_properties:
+            if an_item in orig_names:
+                properties[an_item] = new_names[orig_names.index(an_item)]
+            else:
+                properties[an_item] = an_item
+        return properties
+
+    if columns == 'all':
+        properties = _get_properties(isophote_list)
+        properties = __rename_properties(properties)
+
+    elif columns == 'main':
+        properties = __rename_properties(properties)
+    else:
+        for an_item in columns:
+            properties[an_item] = an_item
 
     for k, v in properties.items():
         isotable[v] = np.array([getattr(iso, k) for iso in isophote_list])

@@ -18,7 +18,7 @@ import numpy as np
 
 from .epsf_stars import EPSFStar, EPSFStars, LinkedEPSFStar
 from .models import EPSFModel
-from ..centroids import centroid_epsf
+from ..centroids import centroid_com, centroid_epsf
 from ..utils._round import _py2intround
 
 try:
@@ -314,7 +314,7 @@ class EPSFBuilder:
     """
 
     def __init__(self, oversampling=4., shape=None,
-                 smoothing_kernel='quartic', recentering_func=centroid_epsf,
+                 smoothing_kernel='quartic', recentering_func=centroid_com,
                  recentering_maxiters=20, fitter=EPSFFitter(), maxiters=10,
                  progress_bar=True, norm_radius=5.5, shift_val=0.5,
                  recentering_boxsize=(5, 5), center_accuracy=1.0e-3,
@@ -549,6 +549,10 @@ class EPSFBuilder:
         if self.smoothing_kernel is None:
             return epsf_data
 
+        # do this check first as comparing a ndarray to string causes a warning
+        elif isinstance(self.smoothing_kernel, np.ndarray):
+            kernel = self.smoothing_kernel
+
         elif self.smoothing_kernel == 'quartic':
             # from Polynomial2D fit with degree=4 to 5x5 array of
             # zeros with 1. at the center
@@ -583,15 +587,12 @@ class EPSFBuilder:
                  [-0.07428311, 0.01142786, 0.03999952, 0.01142786,
                   -0.07428311]])
 
-        elif isinstance(self.smoothing_kernel, np.ndarray):
-            kernel = self.smoothing_kernel
-
         else:
             raise TypeError('Unsupported kernel.')
 
         return convolve(epsf_data, kernel)
 
-    def _recenter_epsf(self, epsf, centroid_func=centroid_epsf,
+    def _recenter_epsf(self, epsf, centroid_func=centroid_com,
                        box_size=(5, 5), maxiters=20, center_accuracy=1.0e-4):
         """
         Calculate the center of the ePSF data and shift the data so the
