@@ -261,27 +261,3 @@ def subtract_psf(data, psf, posflux, subshape=None):
 
     return subbeddata
 
-
-def _split_parameter_name(name: str) -> List[str]:
-    """When combining astropy models, parameter names have a number attached
-    as a postfix. This function extracts that number. If no number is
-    present, '-1' is returned as the postfix
-
-    Parameters
-    ----------
-    name: parameter name that may or may not contain a numerical postfix
-
-    Returns
-    -------
-    components: 2 Element List[str]
-    First element contains the base-name, the second the numerical
-    postfix.
-    """
-    components = name.split('_')
-    if not components[-1].isnumeric():  # no number prefix present
-        components = ['_'.join(components), '-1']
-    elif len(components) == 1:  # contained no _
-        components = components + ['-1']
-    elif len(components) > 2:  # contained multiple _
-        components = ['_'.join(components[:-1]), components[-1]]
-    return components

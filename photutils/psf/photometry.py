@@ -14,7 +14,7 @@ import numpy as np
 
 from .groupstars import DAOGroup
 from .utils import (_extract_psf_fitting_names, get_grouped_psf_model,
-                    subtract_psf, _split_parameter_name)
+                    subtract_psf)
 from ..aperture import CircularAperture, aperture_photometry
 from ..background import MMMBackground
 from ..detection import DAOStarFinder
