@@ -8,8 +8,14 @@ from astropy.modeling import models
 from astropy.nddata.utils import add_array, extract_array
 import numpy as np
 
-__all__ = ['prepare_psf_model', 'get_grouped_psf_model', 'subtract_psf']
 
+class InverseShift(models.Shift):
+    @staticmethod
+    def evaluate(x, offset):
+        return x - offset
+
+
+__all__ = ['prepare_psf_model', 'get_grouped_psf_model', 'subtract_psf']
 
 def prepare_psf_model(psfmodel, xname=None, yname=None, fluxname=None,
                       renormalize_psf=True):
@@ -52,7 +58,7 @@ def prepare_psf_model(psfmodel, xname=None, yname=None, fluxname=None,
     """
 
     if xname is None:
-        xinmod = models.Shift(0, name='x_offset')
+        xinmod = InverseShift(0, name='x_offset')
         xname = 'offset_0'
     else:
         xinmod = models.Identity(1)
@@ -60,7 +66,7 @@ def prepare_psf_model(psfmodel, xname=None, yname=None, fluxname=None,
     xinmod.fittable = True
 
     if yname is None:
-        yinmod = models.Shift(0, name='y_offset')
+        yinmod = InverseShift(0, name='y_offset')
         yname = 'offset_1'
     else:
         yinmod = models.Identity(1)
