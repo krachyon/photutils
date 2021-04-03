@@ -19,6 +19,12 @@ Bug Fixes
   - Fixed an issue in ``data_properties`` where a scalar background
     input would raise an error. [#1198]
 
+- ``photutils.psf``
+
+    - Corrected the offset in the model used for fitting stars to the
+      image in the PSF-photometry classes. Fixes the issue of initial
+      guesses not being improved by fit. [#1163]
+
 
 1.1.0 (2021-03-20)
 ------------------
