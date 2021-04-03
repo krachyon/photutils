@@ -883,4 +883,3 @@ def test_fit_epsf_to_single_star():
     result = basic_phot(input_image, perturbed_input)
     assert_allclose(input_table['x_0'], result['x_fit'])
     assert_allclose(input_table['y_0'], result['y_fit'])
-    
