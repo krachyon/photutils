@@ -9,15 +9,9 @@ from numpy.testing import assert_allclose, assert_almost_equal
 import pytest
 
 from ..bounding_box import BoundingBox
-from ..circle import CircularAperture
+from ..circle import CircularAperture, CircularAnnulus
+from ..rectangle import RectangularAnnulus
 from ..mask import ApertureMask
-
-try:
-    import matplotlib  # noqa
-    HAS_MATPLOTLIB = True
-except ImportError:
-    HAS_MATPLOTLIB = False
-
 
 POSITIONS = [(-20, -20), (-20, 20), (20, -20), (60, 60)]
 
@@ -44,9 +38,6 @@ def test_mask_cutout_shape():
 
     with pytest.raises(ValueError):
         mask.cutout(np.arange(10))
-
-    with pytest.raises(ValueError):
-        mask._overlap_slices((10,))
 
     with pytest.raises(ValueError):
         mask.to_image((10,))
@@ -130,3 +121,72 @@ def test_mask_multiply_quantity():
     # test that multiply() returns a copy
     data[25, 25] = 100. * u.adu
     assert data_weighted[10, 10].value == 1.
+
+
+@pytest.mark.parametrize('value', (np.nan, np.inf))
+def test_mask_nonfinite_fill_value(value):
+    aper = CircularAnnulus((0, 0), 10, 20)
+    data = np.ones((101, 101)).astype(int)
+    cutout = aper.to_mask().cutout(data, fill_value=value)
+    assert ~np.isfinite(cutout[0, 0])
+
+
+def test_mask_multiply_fill_value():
+    aper = CircularAnnulus((0, 0), 10, 20)
+    data = np.ones((101, 101)).astype(int)
+    cutout = aper.to_mask().multiply(data, fill_value=np.nan)
+    xypos = ((20, 20), (5, 5), (5, 35), (35, 5), (35, 35))
+    for x, y in xypos:
+        assert np.isnan(cutout[y, x])
+
+
+def test_mask_get_values():
+    aper = CircularAnnulus(((0, 0), (50, 50), (100, 100)), 10, 20)
+    data = np.ones((101, 101))
+    values = [mask.get_values(data) for mask in aper.to_mask()]
+    shapes = [val.shape for val in values]
+    sums = [np.sum(val) for val in values]
+    assert shapes[0] == (278,)
+    assert shapes[1] == (1068,)
+    assert shapes[2] == (278,)
+    sums_expected = (245.621534, 942.477796, 245.621534)
+    assert_allclose(sums, sums_expected)
+
+
+def test_mask_get_values_no_overlap():
+    aper = CircularAperture((-100, -100), r=3)
+    data = np.ones((51, 51))
+    values = aper.to_mask().get_values(data)
+    assert values.size == 1
+    assert np.isnan(values[0])
+
+
+def test_rectangular_annulus_hin():
+    aper = RectangularAnnulus((25, 25), 2, 4, 20, h_in=18, theta=0)
+    mask = aper.to_mask(method='center')
+    assert mask.data.shape == (21, 5)
+    assert np.count_nonzero(mask.data) == 40
+
+
+def test_mask_get_overlap_slices():
+    aper = CircularAperture((5, 5), r=10.)
+    mask = aper.to_mask()
+    slc = ((slice(0, 16, None), slice(0, 16, None)),
+           (slice(5, 21, None), slice(5, 21, None)))
+    assert mask.get_overlap_slices((25, 25)) == slc
+
+
+def test_mask_get_values_mask():
+    aper = CircularAperture((24.5, 24.5), r=10.)
+    data = np.ones((51, 51))
+    mask = aper.to_mask()
+    with pytest.raises(ValueError):
+        mask.get_values(data, mask=np.ones(3))
+
+    arr = mask.get_values(data, mask=None)
+    assert_allclose(np.sum(arr), 100. * np.pi)
+
+    data_mask = np.zeros(data.shape, dtype=bool)
+    data_mask[25:] = True
+    arr2 = mask.get_values(data, mask=data_mask)
+    assert_allclose(np.sum(arr2), 100. * np.pi / 2.)

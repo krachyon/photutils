@@ -1,4 +1,26 @@
-1.1.0 (unreleased)
+1.2.0 (unreleased)
+------------------
+
+General
+^^^^^^^
+
+New Features
+^^^^^^^^^^^^
+
+Bug Fixes
+^^^^^^^^^
+
+- ``photutils.detection``
+
+  - Fixed the ``DAOStarFinder`` import deprecation message. [#1195]
+
+- ``photutils.morphology``
+
+  - Fixed an issue in ``data_properties`` where a scalar background
+    input would raise an error. [#1198]
+
+
+1.1.0 (2021-03-20)
 ------------------
 
 General
@@ -17,15 +39,49 @@ New Features
   - Added an ``area_overlap`` method for ``PixelAperture`` objects that
     gives the overlapping area of the aperture on the data. [#874]
 
+  - Added a ``get_overlap_slices`` method and a ``center`` attribute to
+    ``BoundingBox``. [#1157]
+
+  - Added a ``get_values`` method to ``ApertureMask`` that returns a 1D
+    array of mask-weighted values. [#1158, #1161]
+
+  - Added ``get_overlap_slices`` method to ``ApertureMask``. [#1165]
+
 - ``photutils.background``
 
   - The ``Background2D`` class now accepts astropy ``NDData``,
     ``CCDData``, and ``Quantity`` objects as data inputs. [#1140]
 
+- ``photutils.detection``
+
+  - Added a ``StarFinder`` class to detect stars with a user-defined
+    kernel. [#1182]
+
 - ``photutils.isophote``
 
   - Added the ability to specify the output columns in the
     ``IsophoteList`` ``to_table`` method. [#1117]
+
+- ``photutils.psf``
+
+  - The ``EPSFStars`` class is now usable with multiprocessing. [#1152]
+
+  - Slicing ``EPSFStars`` now returns an ``EPSFStars`` instance. [#1185]
+
+- ``photutils.segmentation``
+
+  - Added a modified, significantly faster, ``SourceCatalog`` class.
+    [#1170, #1188, #1191]
+
+  - Added ``circular_aperture`` and ``circular_phometry`` methods to the
+    ``SourceCatalog`` class. [#1188]
+
+  - Added ``fwhm`` property to the ``SourceCatalog`` class. [#1191]
+
+  - Added ``fluxfrac_radius`` method to the ``SourceCatalog`` class.
+    [#1192]
+
+  - Added a ``bbox`` attribute to ``SegmentationImage``. [#1187]
 
 Bug Fixes
 ^^^^^^^^^
@@ -35,18 +91,94 @@ Bug Fixes
   - Slicing a scalar ``Aperture`` object now raises an informative error
     message. [#1154]
 
+  - Fixed an issue where ``ApertureMask.multiply`` ``fill_value`` was
+    not applied to pixels outside of the aperture mask, but within the
+    aperture bounding box. [#1158]
+
+  - Fixed an issue where ``ApertureMask.cutout`` would raise an error
+    if ``fill_value`` was non-finite and the input array was integer
+    type. [#1158]
+
+  - Fixed an issue where ``RectangularAnnulus`` with a non-default
+    ``h_in`` would give an incorrect ``ApertureMask``. [#1160]
+
+- ``photutils.isophote``
+
+  - Fix computation of gradient relative error when gradient=0. [#1180]
+
 - ``photutils.psf``
 
   - Fixed a bug in ``EPSFBuild`` where a warning was raised if the input
     ``smoothing_kernel`` was an ``numpy.ndarray``. [#1146]
 
+  - Fixed a bug that caused photometry to fail on an ``EPSFmodel`` with
+    multiple stars in a group. [#1135]
+
+  - Added a fallback ``aperture_radius`` for PSF models without a FWHM
+    or sigma attribute, raising a warning. [#740]
+
+- ``photutils.segmentation``
+
+  - Fixed ``SourceProperties`` ``local_background`` to work with
+    Quantity data inputs. [#1162]
+
+  - Fixed ``SourceProperties`` ``local_background`` for sources near the
+    image edges. [#1162]
+
+  - Fixed ``SourceProperties`` ``kron_radius`` for sources that are
+    completely masked. [#1164]
+
+  - Fixed ``SourceProperties`` Kron properties for sources near the
+    image edges. [#1167]
+
+  - Fixed ``SourceProperties`` Kron mask correction. [#1167]
+
 API changes
 ^^^^^^^^^^^
+
+- ``photutils.aperture``
+
+  - Deprecated the ``BoundingBox`` ``slices`` attribute. Use the
+    ``get_overlap_slices`` method instead. [#1157]
 
 - ``photutils.centroid``
 
   - Removed the deprecated ``fit_2dgaussian`` function and
     ``GaussianConst2D`` class. [#1147]
+
+  - Importing tools from the centroids subpackge without including the
+    subpackage name is deprecated. [#1190]
+
+- ``photutils.detection``
+
+  - Importing the ``DAOStarFinder``, ``IRAFStarFinder``, and
+    ``StarFinderBase`` classes from the deprecated ``findstars.py``
+    module is now deprecated. These classes can be imported using ``from
+    photutils.detection import <class>``. [#1173]
+
+  - Importing the ``find_peaks`` function from the deprecated
+    ``core.py`` module is now deprecated. This function can be imported
+    using ``from photutils.detection import find_peaks``. [#1173]
+
+- ``photutils.morphology``
+
+  - Importing tools from the morphology subpackge without including the
+    subpackage name is deprecated. [#1190]
+
+- ``photutils.segmentation``
+
+  - Deprecated the ``"mask_all"`` option in the ``SourceProperties``
+    ``kron_params`` keyword. [#1167]
+
+  - Deprecated ``source_properties``, ``SourceProperties``, and
+    ``LegacySourceCatalog``.  Use the new ``SourceCatalog`` function
+    instead. [#1170]
+
+  - The ``detect_threshold`` function was moved to the ``segmentation``
+    subpackage. [#1171]
+
+  - Removed the ability to slice ``SegmentationImage``. Instead slice
+    the ``segments`` attribute. [#1187]
 
 
 1.0.2 (2021-01-20)

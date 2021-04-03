@@ -12,7 +12,9 @@ from astropy.stats import SigmaClip
 from astropy.table import QTable
 import astropy.units as u
 from astropy.utils import lazyproperty
-from astropy.utils.exceptions import AstropyUserWarning
+from astropy.utils.decorators import deprecated
+from astropy.utils.exceptions import (AstropyUserWarning,
+                                      AstropyDeprecationWarning)
 import numpy as np
 
 from .core import SegmentationImage
@@ -23,10 +25,10 @@ from ..utils._convolution import _filter_data
 from ..utils._moments import _moments, _moments_central
 from ..utils._wcs_helpers import _pixel_to_world
 
-__all__ = ['SourceProperties', 'source_properties', 'SourceCatalog']
+__all__ = ['SourceProperties', 'source_properties', 'LegacySourceCatalog']
 
 __doctest_requires__ = {('SourceProperties', 'SourceProperties.*',
-                         'SourceCatalog', 'SourceCatalog.*',
+                         'LegacySourceCatalog', 'LegacySourceCatalog.*',
                          'source_properties', 'properties_table'):
                         ['scipy']}
 
@@ -44,10 +46,11 @@ DEFAULT_COLUMNS = ['id', 'xcentroid', 'ycentroid', 'sky_centroid',
                    'cyy', 'gini']
 
 
+@deprecated('1.1', alternative='`~photutils.segmentation.SourceCatalog`')
 class SourceProperties:
     """
     Class to calculate photometry and morphological properties of a
-    single labeled source.
+    single labeled source (deprecated).
 
     Parameters
     ----------
@@ -143,7 +146,8 @@ class SourceProperties:
                      MASK_TYPE=NONE in SourceExtractor).
           * 'mask':  mask pixels assigned to neighboring sources
                      (equivalent to MASK_TYPE=BLANK in SourceExtractor)
-          * 'mask_all':  mask all pixels outside of the source segment.
+          * 'mask_all':  mask all pixels outside of the source segment
+                         (deprecated).
           * 'correct':  replace pixels assigned to neighboring sources
                         by replacing them with pixels on the opposite
                         side of the source (equivalent to
@@ -282,7 +286,7 @@ class SourceProperties:
         segment_img.check_labels(label)
         self.label = label
 
-        self.segment = segment_img[segment_img.get_index(label)]
+        self.segment = segment_img.segments[segment_img.get_index(label)]
         self.slices = self.segment.slices
 
         if localbkg_width is not None and localbkg_width <= 0:
@@ -291,6 +295,10 @@ class SourceProperties:
 
         if kron_params[0] not in ('none', 'mask', 'mask_all', 'correct'):
             raise ValueError('Invalid value for kron_params[0]')
+        if kron_params[0] == 'mask_all':
+            warnings.warn('The "mask_all" option is deprecated and will '
+                          'be removed in a future release.',
+                          AstropyDeprecationWarning)
         self.kron_params = kron_params
         self._kron_fluxerr = None
 
@@ -1430,36 +1438,31 @@ class SourceProperties:
         aperture around the source.
         """
         if self.localbkg_width is None:
-            return 0.
+            local_bkg = 0.
+        elif self._is_completely_masked:
+            local_bkg = np.nan
+        else:
+            aperture = self.local_background_aperture
+            aperture_mask = aperture.to_mask(method='center')
 
-        aperture = self.local_background_aperture
-        aperture_mask = aperture.to_mask(method='center')
+            mask = ~np.isfinite(self._data)
+            if self._mask is not None:
+                mask |= self._mask
+            mask |= self._segment_img.data.astype(bool)
 
-        mask = ~np.isfinite(self._data)
-        if self._mask is not None:
-            mask |= self._mask
+            values = aperture_mask.get_values(self._data, mask=mask)
+            if len(values) < 10:  # not enough unmasked pixels
+                return 0.
+            sigma_clip = SigmaClip(sigma=3.0, cenfunc='median', maxiters=20)
+            bkg_func = SExtractorBackground(sigma_clip)
+            if isinstance(values, u.Quantity):
+                local_bkg = bkg_func(values.value)
+            else:
+                local_bkg = bkg_func(values)
 
-        data = aperture_mask.cutout(self._data, copy=True)
-        mask = aperture_mask.cutout(mask)
-        segm_mask = self._mask_neighbors(aperture_mask, method='mask')
-
-        # need to define new aperture mask
-        aperture = deepcopy(self.local_background_aperture)
-        aperture.positions -= (aperture_mask.bbox.ixmin,
-                               aperture_mask.bbox.iymin)
-        aperture_mask = aperture.to_mask(method='center')
-
-        mask |= aperture_mask._mask
-        if segm_mask is not None:
-            mask |= segm_mask
-        pix1d = aperture_mask.multiply(data)[~mask]
-        if len(pix1d) < 10:  # not enough unmasked pixels
-            return 0.
-        sigma_clip = SigmaClip(sigma=3.0, cenfunc='median', maxiters=20)
-        bkg_func = SExtractorBackground(sigma_clip)
-        if isinstance(pix1d, u.Quantity):
-            return bkg_func(pix1d.value) * self._data_unit
-        return bkg_func(pix1d)
+        if self._data_unit != 1:
+            local_bkg <<= self._data_unit
+        return local_bkg
 
     def _elliptical_aperture(self, radius=6.):
         """
@@ -1473,6 +1476,9 @@ class SourceProperties:
         a = self.semimajor_axis_sigma.value * radius
         b = self.semiminor_axis_sigma.value * radius
         theta = self.orientation.to(u.radian).value
+        values = (position[0], position[1], a, b, theta)
+        if np.any(~np.isfinite(values)):
+            return None
         return EllipticalAperture(position, a, b, theta=theta)
 
     def _mask_neighbors(self, aperture_mask, method='none'):
@@ -1494,35 +1500,39 @@ class SourceProperties:
 
         return segm_mask
 
-    def _prepare_kron_data(self, aperture_mask):
+    def _prepare_kron_data(self, aperture_mask, sub_bkg=False, correct=False):
+        apply_correct = correct and (self.kron_params[0] == 'correct')
+
         mask = ~np.isfinite(self._data)
         if self._mask is not None:
             mask |= self._mask
 
-        data = aperture_mask.cutout(self._data, copy=True)
-        mask = aperture_mask.cutout(mask)
-        data[mask] = 0.
-
+        data = aperture_mask.cutout(self._data, copy=True, fill_value=np.nan)
+        mask = aperture_mask.cutout(mask) | np.isnan(data)
         segm_mask = self._mask_neighbors(aperture_mask,
                                          method=self.kron_params[0])
-        if segm_mask is not None:
-            data[segm_mask] = 0.
+        if segm_mask is not None and not apply_correct:
+            mask |= segm_mask
+
+        if sub_bkg:
+            data -= self.local_background
+        data[mask] = 0.
 
         if self._error is not None:
             error = aperture_mask.cutout(self._error, copy=True)
-            if segm_mask is not None:
-                error[segm_mask] = 0.
+            error[mask] = 0.
         else:
             error = None
 
         # Correct masked pixels in neighboring segments.  Masked pixels
         # are replaced with pixels on the opposite side of the source.
-        if self.kron_params[0] == 'correct':
-            from ..utils.interpolation import _mask_to_mirrored_num
-            xypos = (self.xcentroid.value, self.ycentroid.value)
-            data = _mask_to_mirrored_num(data, segm_mask, xypos)
+        if apply_correct:
+            from ._utils import mask_to_mirrored_value
+            xycen = (self.xcentroid.value - aperture_mask.bbox.ixmin,
+                     self.ycentroid.value - aperture_mask.bbox.iymin)
+            data = mask_to_mirrored_value(data, segm_mask, xycen)
             if self._error is not None:
-                error = _mask_to_mirrored_num(error, segm_mask, xypos)
+                error = mask_to_mirrored_value(error, segm_mask, xycen)
 
         return data, error
 
@@ -1558,11 +1568,15 @@ class SourceProperties:
         aperture will be `None` and the Kron flux will be ``np.nan``.
         """
         aperture = self._elliptical_aperture(radius=6.0)
+        if aperture is None:
+            return np.nan << u.pixel
+
         aperture_mask = aperture.to_mask()
 
         # prepare cutouts of the data and error arrays based on the
         # aperture size
-        data, error = self._prepare_kron_data(aperture_mask)
+        data, _ = self._prepare_kron_data(aperture_mask, sub_bkg=False,
+                                          correct=False)
         aperture.positions -= (aperture_mask.bbox.ixmin,
                                aperture_mask.bbox.iymin)
 
@@ -1605,6 +1619,9 @@ class SourceProperties:
                 return None
             # use circular aperture with radius=self.kron_params[2]
             xypos = (self.xcentroid.value, self.ycentroid.value)
+            values = (xypos[0], xypos[1], self.kron_params[2])
+            if np.any(~np.isfinite(values)):
+                return None
             aperture = CircularAperture(xypos, r=self.kron_params[2])
         else:
             radius = self.kron_radius.value * self.kron_params[1]
@@ -1625,14 +1642,15 @@ class SourceProperties:
 
         aperture = deepcopy(self.kron_aperture)
         aperture_mask = aperture.to_mask()
-        data, error = self._prepare_kron_data(aperture_mask)
+        data, error = self._prepare_kron_data(aperture_mask, sub_bkg=True,
+                                              correct=True)
         aperture.positions -= (aperture_mask.bbox.ixmin,
                                aperture_mask.bbox.iymin)
 
         method = self.kron_params[3]
         subpixels = self.kron_params[4]
-        flux, fluxerr = aperture.do_photometry(data - self.local_background,
-                                               error=error, method=method,
+        flux, fluxerr = aperture.do_photometry(data, error=error,
+                                               method=method,
                                                subpixels=subpixels)
         if len(fluxerr) > 0:
             self._kron_fluxerr = fluxerr[0]
@@ -1693,13 +1711,14 @@ class SourceProperties:
         return np.sum(kernel) / normalization
 
 
+@deprecated('1.1', alternative='`~photutils.segmentation.SourceCatalog`')
 def source_properties(data, segment_img, error=None, mask=None,
                       background=None, filter_kernel=None, wcs=None,
                       labels=None, localbkg_width=None,
                       kron_params=('mask', 2.5, 0.0, 'exact', 5)):
     """
     Calculate photometry and morphological properties of sources defined
-    by a labeled segmentation image.
+    by a labeled segmentation image (deprecated).
 
     Parameters
     ----------
@@ -1801,9 +1820,9 @@ def source_properties(data, segment_img, error=None, mask=None,
 
     Returns
     -------
-    output : `SourceCatalog` instance
-        A `SourceCatalog` instance containing the properties of each
-        source.
+    output : `LegacySourceCatalog` instance
+        A `LegacySourceCatalog` instance containing the properties of
+        each source.
 
     Notes
     -----
@@ -1846,48 +1865,6 @@ def source_properties(data, segment_img, error=None, mask=None,
     See Also
     --------
     SegmentationImage, SourceProperties, detect_sources
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from photutils import SegmentationImage, source_properties
-    >>> image = np.arange(16.).reshape(4, 4)
-    >>> print(image)  # doctest: +SKIP
-    [[ 0.  1.  2.  3.]
-     [ 4.  5.  6.  7.]
-     [ 8.  9. 10. 11.]
-     [12. 13. 14. 15.]]
-    >>> segm = SegmentationImage([[1, 1, 0, 0],
-    ...                           [1, 0, 0, 2],
-    ...                           [0, 0, 2, 2],
-    ...                           [0, 2, 2, 0]])
-    >>> props = source_properties(image, segm)
-
-    Print some properties of the first object (labeled with ``1`` in the
-    segmentation image):
-
-    >>> props[0].id  # id corresponds to segment label number
-    1
-    >>> props[0].centroid  # doctest: +FLOAT_CMP
-    <Quantity [0.8, 0.2] pix>
-    >>> props[0].source_sum  # doctest: +FLOAT_CMP
-    5.0
-    >>> props[0].area  # doctest: +FLOAT_CMP
-    <Quantity 3. pix2>
-    >>> props[0].max_value  # doctest: +FLOAT_CMP
-    4.0
-
-    Print some properties of the second object (labeled with ``2`` in
-    the segmentation image):
-
-    >>> props[1].id  # id corresponds to segment label number
-    2
-    >>> props[1].centroid  # doctest: +FLOAT_CMP
-    <Quantity [2.36363636, 2.09090909] pix>
-    >>> props[1].perimeter  # doctest: +FLOAT_CMP
-    <Quantity 5.41421356 pix>
-    >>> props[1].orientation  # doctest: +FLOAT_CMP
-    <Quantity -42.4996777 deg>
     """
 
     if not isinstance(segment_img, SegmentationImage):
@@ -1922,12 +1899,13 @@ def source_properties(data, segment_img, error=None, mask=None,
     if not sources_props:
         raise ValueError('No sources are defined.')
 
-    return SourceCatalog(sources_props, wcs=wcs)
+    return LegacySourceCatalog(sources_props, wcs=wcs)
 
 
-class SourceCatalog:
+@deprecated('1.1', alternative='`~photutils.segmentation.SourceCatalog`')
+class LegacySourceCatalog:
     """
-    Class to hold source catalogs.
+    Class to hold source catalogs (deprecated).
     """
 
     def __init__(self, properties_list, wcs=None):
@@ -2060,7 +2038,7 @@ class SourceCatalog:
     def to_table(self, columns=None, exclude_columns=None):
         """
         Construct a `~astropy.table.QTable` of source properties from a
-        `SourceCatalog` object.
+        `LegacySourceCatalog` object.
 
         If ``columns`` or ``exclude_columns`` are not input, then the
         `~astropy.table.QTable` will include a default list of
@@ -2094,32 +2072,6 @@ class SourceCatalog:
         See Also
         --------
         SegmentationImage, SourceProperties, source_properties, detect_sources
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> from photutils import source_properties
-        >>> image = np.arange(16.).reshape(4, 4)
-        >>> print(image)  # doctest: +SKIP
-        [[ 0.  1.  2.  3.]
-         [ 4.  5.  6.  7.]
-         [ 8.  9. 10. 11.]
-         [12. 13. 14. 15.]]
-        >>> segm = SegmentationImage([[1, 1, 0, 0],
-        ...                           [1, 0, 0, 2],
-        ...                           [0, 0, 2, 2],
-        ...                           [0, 2, 2, 0]])
-        >>> cat = source_properties(image, segm)
-        >>> columns = ['id', 'xcentroid', 'ycentroid', 'source_sum']
-        >>> tbl = cat.to_table(columns=columns)
-        >>> tbl['xcentroid'].info.format = '.10f'  # optional format
-        >>> tbl['ycentroid'].info.format = '.10f'  # optional format
-        >>> print(tbl)
-        id  xcentroid    ycentroid   source_sum
-                pix          pix
-        --- ------------ ------------ ----------
-        1 0.2000000000 0.8000000000        5.0
-        2 2.0909090909 2.3636363636       55.0
         """
 
         return _properties_table(self, columns=columns,
@@ -2129,11 +2081,11 @@ class SourceCatalog:
 def _properties_table(obj, columns=None, exclude_columns=None):
     """
     Construct a `~astropy.table.QTable` of source properties from a
-    `SourceProperties` or `SourceCatalog` object.
+    `SourceProperties` or `LegacySourceCatalog` object.
 
     Parameters
     ----------
-    obj : `SourceProperties` or `SourceCatalog` instance
+    obj : `SourceProperties` or `LegacySourceCatalog` instance
         The object containing the source properties.
 
     columns : str or list of str, optional

@@ -82,7 +82,6 @@ class RectangularMaskMixin:
         elif hasattr(self, 'w_out'):  # annulus
             w = self.w_out
             h = self.h_out
-            h_in = self.w_in * self.h_out / self.w_out
         else:
             raise ValueError('Cannot determine the aperture radius.')
 
@@ -98,7 +97,7 @@ class RectangularMaskMixin:
             if hasattr(self, 'w_in'):
                 mask -= rectangular_overlap_grid(edges[0], edges[1], edges[2],
                                                  edges[3], nx, ny, self.w_in,
-                                                 h_in, self.theta, 0,
+                                                 self.h_in, self.theta, 0,
                                                  subpixels)
 
             masks.append(ApertureMask(mask, bbox))
@@ -184,7 +183,7 @@ class RectangularAperture(RectangularMaskMixin, PixelAperture):
 
     Examples
     --------
-    >>> from photutils import RectangularAperture
+    >>> from photutils.aperture import RectangularAperture
     >>> aper = RectangularAperture([10., 20.], 5., 3.)
     >>> aper = RectangularAperture((10., 20.), 5., 3., theta=np.pi)
 
@@ -332,7 +331,7 @@ class RectangularAnnulus(RectangularMaskMixin, PixelAperture):
 
     Examples
     --------
-    >>> from photutils import RectangularAnnulus
+    >>> from photutils.aperture import RectangularAnnulus
     >>> aper = RectangularAnnulus([10., 20.], 3., 8., 5.)
     >>> aper = RectangularAnnulus((10., 20.), 3., 8., 5., theta=np.pi)
 
@@ -481,7 +480,7 @@ class SkyRectangularAperture(SkyAperture):
     --------
     >>> from astropy.coordinates import SkyCoord
     >>> import astropy.units as u
-    >>> from photutils import SkyRectangularAperture
+    >>> from photutils.aperture import SkyRectangularAperture
     >>> positions = SkyCoord(ra=[10., 20.], dec=[30., 40.], unit='deg')
     >>> aper = SkyRectangularAperture(positions, 1.0*u.arcsec, 0.5*u.arcsec)
     """
@@ -571,7 +570,7 @@ class SkyRectangularAnnulus(SkyAperture):
     --------
     >>> from astropy.coordinates import SkyCoord
     >>> import astropy.units as u
-    >>> from photutils import SkyRectangularAnnulus
+    >>> from photutils.aperture import SkyRectangularAnnulus
     >>> positions = SkyCoord(ra=[10., 20.], dec=[30., 40.], unit='deg')
     >>> aper = SkyRectangularAnnulus(positions, 3.0*u.arcsec, 8.0*u.arcsec,
     ...                              5.0*u.arcsec)

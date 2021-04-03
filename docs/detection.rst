@@ -13,8 +13,9 @@ point-like (stellar) sources in an astronomical image.  Photutils also
 provides a function to identify local peaks in an image that are above
 a specified threshold value.
 
-For general-use source detection and extraction of both point-like and
-extended sources, please see :ref:`image_segmentation`.
+For general-use source detection and extraction of both point-like
+and extended sources, please see :ref:`Image Segmentation
+<image_segmentation>`.
 
 
 Detecting Stars
@@ -47,8 +48,8 @@ select a subset of the image.  We will estimate the background and
 background noise using sigma-clipped statistics::
 
     >>> from astropy.stats import sigma_clipped_stats
-    >>> from photutils import datasets
-    >>> hdu = datasets.load_star_image()  # doctest: +REMOTE_DATA
+    >>> from photutils.datasets import load_star_image
+    >>> hdu = load_star_image()  # doctest: +REMOTE_DATA
     >>> data = hdu.data[0:401, 0:401]  # doctest: +REMOTE_DATA
     >>> mean, median, std = sigma_clipped_stats(data, sigma=3.0)  # doctest: +REMOTE_DATA
     >>> print((mean, median, std))  # doctest: +REMOTE_DATA, +FLOAT_CMP
@@ -63,7 +64,7 @@ finder:
 
 .. doctest-requires:: scipy
 
-    >>> from photutils import DAOStarFinder
+    >>> from photutils.detection import DAOStarFinder
     >>> daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)  # doctest: +REMOTE_DATA
     >>> sources = daofind(data - median)  # doctest: +REMOTE_DATA
     >>> for col in sources.colnames:  # doctest: +REMOTE_DATA
@@ -92,7 +93,7 @@ Let's plot the image and mark the location of detected sources:
     >>> import matplotlib.pyplot as plt
     >>> from astropy.visualization import SqrtStretch
     >>> from astropy.visualization.mpl_normalize import ImageNormalize
-    >>> from photutils import CircularAperture
+    >>> from photutils.aperture import CircularAperture
     >>> positions = np.transpose((sources['xcentroid'], sources['ycentroid']))
     >>> apertures = CircularAperture(positions, r=4.)
     >>> norm = ImageNormalize(stretch=SqrtStretch())
@@ -107,9 +108,11 @@ Let's plot the image and mark the location of detected sources:
     from astropy.stats import sigma_clipped_stats
     from astropy.visualization import SqrtStretch
     from astropy.visualization.mpl_normalize import ImageNormalize
-    from photutils import datasets, DAOStarFinder, CircularAperture
+    from photutils.datasets import load_star_image
+    from photutils.detection import DAOStarFinder
+    from photutils.aperture import CircularAperture
 
-    hdu = datasets.load_star_image()
+    hdu = load_star_image()
     data = hdu.data[0:401, 0:401]
     mean, median, std = sigma_clipped_stats(data, sigma=3.0)
     daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)
@@ -134,7 +137,7 @@ regions:
 
 .. doctest-skip::
 
-   >>> from photutils import DAOStarFinder
+   >>> from photutils.detection import DAOStarFinder
    >>> daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)
    >>> mask = np.zeros(data.shape, dtype=bool)
    >>> mask[50:151, 50:351] = True
@@ -151,10 +154,11 @@ regions:
     from astropy.stats import sigma_clipped_stats
     from astropy.visualization import SqrtStretch
     from astropy.visualization.mpl_normalize import ImageNormalize
-    from photutils import datasets, DAOStarFinder, CircularAperture
-    from photutils import RectangularAperture
+    from photutils.datasets import load_star_image
+    from photutils.aperture import CircularAperture, RectangularAperture
+    from photutils.detection import DAOStarFinder
 
-    hdu = datasets.load_star_image()
+    hdu = load_star_image()
     data = hdu.data[0:401, 0:401]
     mean, median, std = sigma_clipped_stats(data, sigma=3.0)
     daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)
@@ -202,7 +206,7 @@ sigma above the background and a separated by at least 5 pixels:
 
     >>> from astropy.stats import sigma_clipped_stats
     >>> from photutils.datasets import make_100gaussians_image
-    >>> from photutils import find_peaks
+    >>> from photutils.detection import find_peaks
     >>> data = make_100gaussians_image()
     >>> mean, median, std = sigma_clipped_stats(data, sigma=3.0)
     >>> threshold = median + (5. * std)
@@ -230,7 +234,7 @@ And let's plot the location of the detected peaks in the image:
     >>> import matplotlib.pyplot as plt
     >>> from astropy.visualization import simple_norm
     >>> from astropy.visualization.mpl_normalize import ImageNormalize
-    >>> from photutils import CircularAperture
+    >>> from photutils.aperture import CircularAperture
     >>> positions = np.transpose((tbl['x_peak'], tbl['y_peak']))
     >>> apertures = CircularAperture(positions, r=5.)
     >>> norm = simple_norm(data, 'sqrt', percent=99.9)
@@ -244,7 +248,8 @@ And let's plot the location of the detected peaks in the image:
 
     import numpy as np
     from astropy.stats import sigma_clipped_stats
-    from photutils import find_peaks, CircularAperture
+    from photutils.detection import find_peaks
+    from photutils.aperture import CircularAperture
     from photutils.datasets import make_100gaussians_image
     data = make_100gaussians_image()
     mean, median, std = sigma_clipped_stats(data, sigma=3.0)

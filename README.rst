@@ -2,7 +2,7 @@
 Photutils
 =========
 
-|PyPI Version| |Conda Version| |Conda Downloads| |Astropy|
+|PyPI Version| |Conda Version| |PyPI Downloads| |Astropy|
 
 |CI Status| |CircleCI Status| |Codecov Status| |Latest RTD Status| |LGTM Grade|
 
@@ -32,7 +32,7 @@ where (Bradley et al. 20XX) is a citation to the `Zenodo record
 <https://doi.org/10.5281/zenodo.596036>`_ of the Photutils version
 that was used.  We also encourage citations in the main text wherever
 appropriate.  Please see the `CITATION
-<https://github.com/astropy/photutils/blob/master/photutils/CITATION.rst>`_
+<https://github.com/astropy/photutils/blob/main/photutils/CITATION.rst>`_
 file for details and an example BibTeX entry.
 
 
@@ -41,7 +41,7 @@ License
 
 Photutils is licensed under a 3-clause BSD license.  Please see the
 `LICENSE
-<https://github.com/astropy/photutils/blob/master/LICENSE.rst>`_ file
+<https://github.com/astropy/photutils/blob/main/LICENSE.rst>`_ file
 for details.
 
 
@@ -49,13 +49,13 @@ for details.
     :target: https://pypi.org/project/photutils/
     :alt: PyPI Latest Release
 
-.. |Conda Version| image:: https://img.shields.io/conda/vn/astropy/photutils?label=conda%20package
-    :target: https://anaconda.org/astropy/photutils
+.. |Conda Version| image:: https://img.shields.io/conda/vn/conda-forge/photutils
+    :target: https://anaconda.org/conda-forge/photutils
     :alt: Conda Latest Release
 
-.. |Conda Downloads| image:: https://img.shields.io/conda/dn/astropy/photutils?label=conda%20downloads
-    :target: https://anaconda.org/astropy/photutils
-    :alt: Conda Downloads
+.. |PyPI Downloads| image:: https://img.shields.io/pypi/dm/photutils?label=PyPI%20Downloads
+    :target: https://pypistats.org/packages/photutils
+    :alt: PyPI Downloads
 
 .. |Astropy| image:: https://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
     :target: https://www.astropy.org/
@@ -73,7 +73,7 @@ for details.
     :target: https://codecov.io/gh/astropy/photutils
     :alt: Coverage Status
 
-.. |CircleCI Status| image:: https://img.shields.io/circleci/build/github/astropy/photutils/master?logo=circleci&label=CircleCI
+.. |CircleCI Status| image:: https://img.shields.io/circleci/build/github/astropy/photutils/main?logo=circleci&label=CircleCI
     :target: https://circleci.com/gh/astropy/photutils
     :alt: CircleCI Status
 
