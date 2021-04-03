@@ -4,6 +4,7 @@ Tests for the photometry module.
 """
 
 from astropy.convolution.utils import discretize_model
+from astropy.convolution import Gaussian2DKernel, convolve_fft
 from astropy.modeling import Fittable2DModel, Parameter
 from astropy.modeling.fitting import LevMarLSQFitter, SimplexLSQFitter
 from astropy.modeling.models import Gaussian2D, Moffat2D
@@ -20,6 +21,7 @@ from ..models import IntegratedGaussianPRF, FittableImageModel
 from ..photometry import (BasicPSFPhotometry, DAOPhotPSFPhotometry,
                           IterativelySubtractedPSFPhotometry)
 from ..sandbox import DiscretePRF
+from .. import EPSFModel
 from ..utils import prepare_psf_model
 from ...background import MMMBackground, StdBackgroundRMS
 from ...datasets import make_gaussian_prf_sources_image, make_noise_image
@@ -823,19 +825,22 @@ def test_psf_photometry_uncertainties():
         assert column not in phot_tbl.colnames
 
 
-def test_uiaegfqnqfgnvle():
-    from astropy.convolution import Gaussian2DKernel, convolve_fft
-    from photutils.psf import EPSFModel, prepare_psf_model
-    σ = 1
+@pytest.mark.skipif('not HAS_SCIPY')
+def test_fit_epsf_to_single_star():
+    """
+    setup an image with a single source at x=400,y=300, with value 1
+    convolved with a gaussian, create a EPSF model
+    and attempt to fit it to the source
+    """
     img_size = 512
-    names = ('x_0', 'y_0', 'flux_0')  # Todo flux name
+    names = ('x_0', 'y_0', 'flux_0')
 
     x_float = np.array([400.])
     y_float = np.array([300.])
 
     data = np.zeros((img_size,  img_size))
 
-    # distribute point source over neighbour pixels
+    # distribute point source with value 1 over neighbour pixels
     x, x_frac = np.divmod(x_float, 1)
     y, y_frac = np.divmod(y_float, 1)
     x, y = x.astype(int), y.astype(int)
@@ -844,31 +849,39 @@ def test_uiaegfqnqfgnvle():
     data[y, x+1]   = (1-x_frac) * (y_frac)
     data[y+1, x+1] = y_frac     * x_frac
 
-    kernel = Gaussian2DKernel(σ, σ)
-    image = convolve_fft(data, kernel)
-    input_table = Table((x_float.ravel(), y_float.ravel(), 1000*np.ones(x.size)), names=names)
+    input_table = Table(
+            (x_float.ravel(), y_float.ravel(), np.ones(x.size)),
+            names=names)
 
+    # convolve image with gaussian to create a pseudo-realistic source
+    sigma = 1
+    kernel = Gaussian2DKernel(sigma, sigma)
+    input_image = convolve_fft(data, kernel)
 
+    # build an EPSF from the image of a gaussian
     # +0.1 for including end value; 0.5 -> 2x oversampling
     x, y = np.mgrid[-2:2.1:0.5, -2:2.1:0.5]
-    epsf_data = Gaussian2D(x_stddev=σ, y_stddev=σ)(x, y)
+    epsf_data = Gaussian2D(x_stddev=sigma, y_stddev=sigma)(x, y)
 
     epsf = prepare_psf_model(
         EPSFModel(epsf_data, flux=1, normalize=False, oversampling=2),
         renormalize_psf=False, fluxname='flux')
 
+    # run psf-photometry on created image with perfect initial guess
     basic_phot = BasicPSFPhotometry(group_maker=DAOGroup(2),
                                     bkg_estimator=None, psf_model=epsf,
                                     fitshape=[5, 5])
-    exact_result = basic_phot(image, input_table)
+    exact_result = basic_phot(input_image, input_table)
     assert_allclose(input_table['x_0'], exact_result['x_fit'])
     assert_allclose(input_table['y_0'], exact_result['y_fit'])
 
+    # perturb input guess slightly,
+    # photometry should still converge to solution
     perturbed_input = input_table.copy()
     perturbed_input['x_0'] += 0.1
-    perturbed_input['y_0'] += 0.1
+    perturbed_input['y_0'] += 0.12
 
-    result = basic_phot(image, perturbed_input)
+    result = basic_phot(input_image, perturbed_input)
     assert_allclose(input_table['x_0'], result['x_fit'])
     assert_allclose(input_table['y_0'], result['y_fit'])
 
