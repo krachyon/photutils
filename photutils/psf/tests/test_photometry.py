@@ -849,9 +849,8 @@ def test_fit_epsf_to_single_star():
     data[y, x+1]   = (1-x_frac) * (y_frac)
     data[y+1, x+1] = y_frac     * x_frac
 
-    input_table = Table(
-            (x_float.ravel(), y_float.ravel(), np.ones(x.size)),
-            names=names)
+    input_table = Table((x_float.ravel(), y_float.ravel(), np.ones(x.size)),
+                        names=names)
 
     # convolve image with gaussian to create a pseudo-realistic source
     sigma = 1
@@ -884,6 +883,4 @@ def test_fit_epsf_to_single_star():
     result = basic_phot(input_image, perturbed_input)
     assert_allclose(input_table['x_0'], result['x_fit'])
     assert_allclose(input_table['y_0'], result['y_fit'])
-
-
-
+    
