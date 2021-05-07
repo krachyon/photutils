@@ -845,8 +845,8 @@ def test_fit_epsf_to_single_star():
     y, y_frac = np.divmod(y_float, 1)
     x, y = x.astype(int), y.astype(int)
     data[y, x]     = (1-x_frac) * (1-y_frac)
-    data[y+1, x]   = (x_frac)   * (1-y_frac)
-    data[y, x+1]   = (1-x_frac) * (y_frac)
+    data[y+1, x]   = (1-x_frac) * (y_frac)
+    data[y, x+1]   = (x_frac)   * (1-y_frac)
     data[y+1, x+1] = y_frac     * x_frac
 
     input_table = Table((x_float.ravel(), y_float.ravel(), np.ones(x.size)),
