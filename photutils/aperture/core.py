@@ -9,7 +9,6 @@ import copy
 import numpy as np
 from astropy.coordinates import SkyCoord
 import astropy.units as u
-from astropy.utils import deprecated
 from astropy.wcs.utils import wcs_to_celestial_frame
 
 from .bounding_box import BoundingBox
@@ -62,13 +61,14 @@ class Aperture(metaclass=abc.ABCMeta):
                             'or SkyAperture')
 
     def __repr__(self):
-        prefix = f'<{self.__class__.__name__}('
+        prefix = f'{self.__class__.__name__}'
         cls_info = [self._positions_str(prefix)]
-        for param in self._shape_params:
-            cls_info.append(f'{param}={getattr(self, param)}')
+        if self._shape_params is not None:
+            for param in self._shape_params:
+                cls_info.append(f'{param}={getattr(self, param)}')
         cls_info = ', '.join(cls_info)
 
-        return f'{prefix}{cls_info})>'
+        return f'<{prefix}({cls_info})>'
 
     def __str__(self):
         prefix = 'positions'
@@ -159,15 +159,6 @@ class PixelAperture(Aperture):
         raise NotImplementedError('Needs to be implemented in a subclass.')
 
     @property
-    @deprecated('0.7', alternative='bbox')
-    def bounding_boxes(self):
-        """
-        The minimal bounding box for the aperture.
-        """
-
-        return self.bbox
-
-    @property
     def bbox(self):
         """
         The minimal bounding box for the aperture.
@@ -241,7 +232,7 @@ class PixelAperture(Aperture):
             generally slower.  The following methods are available:
 
                 * ``'exact'`` (default):
-                  The the exact fractional overlap of the aperture and
+                  The exact fractional overlap of the aperture and
                   each pixel is calculated.  The returned mask will
                   contain values between 0 and 1.
 
@@ -322,12 +313,13 @@ class PixelAperture(Aperture):
         areas : float or array_like
             The overlapping areas between the aperture masks and the data.
         """
-
         masks = self.to_mask(method=method, subpixels=subpixels)
         if self.isscalar:
             masks = (masks,)
         data = np.ones_like(data)
-        areas = [mask.get_values(data).sum() for mask in masks]
+        vals = [mask.get_values(data) for mask in masks]
+        # if the aperture does not overlap the data return np.nan
+        areas = [val.sum() if val.shape != (0,) else np.nan for val in vals]
         if self.isscalar:
             return areas[0]
         else:
@@ -344,10 +336,16 @@ class PixelAperture(Aperture):
             masks = (masks,)
 
         for apermask in masks:
-            aperture_sums.append(apermask.get_values(data).sum())
+            values = apermask.get_values(data)
+            # if the aperture does not overlap the data return np.nan
+            aper_sum = values.sum() if values.shape != (0,) else np.nan
+            aperture_sums.append(aper_sum)
+
             if variance is not None:
-                aperture_sum_errs.append(
-                    np.sqrt(apermask.get_values(variance).sum()))
+                values = apermask.get_values(variance)
+                # if the aperture does not overlap the data return np.nan
+                aper_var = values.sum() if values.shape != (0,) else np.nan
+                aperture_sum_errs.append(np.sqrt(aper_var))
 
         aperture_sums = np.array(aperture_sums)
         aperture_sum_errs = np.array(aperture_sum_errs)
@@ -486,7 +484,7 @@ class PixelAperture(Aperture):
             The ``(x, y)`` position of the origin of the displayed
             image.
 
-        kwargs : `dict`
+        **kwargs : `dict`
             Any keyword arguments accepted by
             `matplotlib.patches.Patch`.
 
@@ -520,7 +518,7 @@ class PixelAperture(Aperture):
             The ``(x, y)`` position of the origin of the displayed
             image.
 
-        kwargs : `dict`
+        **kwargs : `dict`
             Any keyword arguments accepted by
             `matplotlib.patches.Patch`.
 
@@ -549,7 +547,7 @@ class PixelAperture(Aperture):
             The ``(x, y)`` position of the origin of the displayed
             image.
 
-        kwargs : `dict`
+        **kwargs : `dict`
             Any keyword arguments accepted by
             `matplotlib.patches.Patch`.
 

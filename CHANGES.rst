@@ -25,6 +25,23 @@ Bug Fixes
       image in the PSF-photometry classes. Fixes the issue of initial
       guesses not being improved by fit. [#1163]
 
+- ``photutils.segmentation``
+
+  - Fixed an issue in ``SourceCatalog`` where the user-input ``mask``
+    was ignored when ``apermask_method='correct'`` for Kron-related
+    calculations. [#1210]
+
+API changes
+^^^^^^^^^^^
+
+- ``photutils.aperture``
+
+  - The ``ApertureMask.get_values()`` function now returns an empty
+    array if there is no overlap with the data. [#1212]
+
+  - Removed the deprecated ``BoundingBox.slices`` and
+    ``PixelAperture.bounding_boxes`` attributes. [#1215]
+
 
 1.1.0 (2021-03-20)
 ------------------

@@ -137,11 +137,9 @@ class BoundingBox:
         return self.intersection(other)
 
     def __repr__(self):
-        data = self.__dict__
-        data['name'] = self.__class__.__name__
-        fmt = ('{name}(ixmin={ixmin}, ixmax={ixmax}, iymin={iymin}, '
-               'iymax={iymax})')
-        return fmt.format(**data)
+        return (f'{self.__class__.__name__}(ixmin={self.ixmin}, '
+                f'ixmax={self.ixmax}, iymin={self.iymin}, '
+                f'iymax={self.iymax})')
 
     @property
     def center(self):
@@ -157,20 +155,6 @@ class BoundingBox:
         The ``(ny, nx)`` shape of the bounding box.
         """
         return self.iymax - self.iymin, self.ixmax - self.ixmin
-
-    @property
-    @deprecated('1.1', alternative='get_overlap_slices')
-    def slices(self):
-        """
-        The bounding box as a tuple of `slice` objects.
-
-        The slice tuple is in numpy axis order (i.e., ``(y, x)``) and
-        therefore can be used to slice numpy arrays.
-        """
-        if self.iymin < 0 or self.ixmin < 0:
-            return ValueError('cannot create slices when ixmin or iymin '
-                              'is negative')
-        return (slice(self.iymin, self.iymax), slice(self.ixmin, self.ixmax))
 
     def get_overlap_slices(self, shape):
         """
@@ -190,6 +174,7 @@ class BoundingBox:
             of the large array that overlaps with the small array.
             `None` is returned if there is no overlap of the bounding
             box with the given image shape.
+
         slices_small : tuple of slices or `None`
             A tuple of slice objects for each axis of an array enclosed
             by the bounding box such that ``small_array[slices_small]``
@@ -242,7 +227,7 @@ class BoundingBox:
 
         Parameters
         ----------
-        kwargs : `dict`
+        **kwargs : dict
             Any keyword arguments accepted by
             `matplotlib.patches.Patch`.
 
@@ -260,7 +245,7 @@ class BoundingBox:
 
         Parameters
         ----------
-        kwargs : `dict`
+        **kwargs : dict
             Any keyword arguments accepted by
             `matplotlib.patches.Patch`.
 
@@ -316,7 +301,7 @@ class BoundingBox:
             The ``(x, y)`` position of the origin of the displayed
             image.
 
-        kwargs : `dict`
+        **kwargs : dict
             Any keyword arguments accepted by `matplotlib.patches.Patch`.
         """
         aper = self.to_aperture()
