@@ -31,9 +31,10 @@ class CullerBase(metaclass=abc.ABCMeta):
 
 
 class ChiSquareCuller(CullerBase):
-    """
+    r"""
     This class implements culling of detection tables according to a reduced χ² metric:
-    χ²_r = (Σ_pixel (deviation_image_model)²/ pixel_variance) / n_pixel
+    .. math:: \chi^2_r =\frac{1}{\mathrm n\_pixel}
+        \sum_{\mathrm pixel} \frac{ ({\mathrm image} - {\mathrm model})^2}{pixel\_variance}
 
     TODO it would be nice to support some form of masking to handle bad pixels
     Parameters
