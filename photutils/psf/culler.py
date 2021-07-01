@@ -16,6 +16,7 @@ from .utils import _extract_psf_fitting_names
 
 __all__ = ['CullerBase', 'ChiSquareCuller']
 
+
 class CullerBase(metaclass=abc.ABCMeta):
     # TODO in the architecture draft this is supposed to be CullerAndEnderBase. I'm not sure it makes sense
     #  to always couple the concerns. Alternatively one could define the concerns separately and then
